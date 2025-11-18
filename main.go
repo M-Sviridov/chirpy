@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -65,7 +66,7 @@ func (cfg *apiConfig) handleValidateChirp(w http.ResponseWriter, r *http.Request
 	}
 
 	type respVals struct {
-		Valid bool `json:"valid"`
+		CleanedBody string `json:"cleaned_body"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -82,11 +83,32 @@ func (cfg *apiConfig) handleValidateChirp(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	cleanedBody := cleanedBody(params.Body)
+
 	rv := respVals{
-		Valid: true,
+		CleanedBody: cleanedBody,
 	}
 
 	respondWithJSON(w, http.StatusOK, rv)
+}
+
+func cleanedBody(body string) string {
+	splitBody := strings.Split(body, " ")
+	cleanedBody := []string{}
+	for _, sb := range splitBody {
+		cleanedBody = append(cleanedBody, replaceBadWords(sb))
+	}
+	return strings.Join(cleanedBody, " ")
+}
+
+func replaceBadWords(word string) string {
+	badWords := []string{"kerfuffle", "sharbert", "fornax"}
+	for _, bw := range badWords {
+		if strings.Contains(strings.ToLower(word), bw) {
+			word = "****"
+		}
+	}
+	return word
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
