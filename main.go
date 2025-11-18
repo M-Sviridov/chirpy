@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"sync/atomic"
 )
@@ -22,6 +24,7 @@ func main() {
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(filePathRoot)))))
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handleNumRequests)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handleReset)
+	mux.HandleFunc("POST /api/validate_chirp", apiCfg.handleValidateChirp)
 	mux.HandleFunc("GET /api/healthz", handleReadiness)
 
 	srv := http.Server{
@@ -55,6 +58,52 @@ func (cfg *apiConfig) handleReset(w http.ResponseWriter, r *http.Request) {
 	cfg.fileserverHits.Store(0)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Reset total hits to 0"))
+}
+
+func (cfg *apiConfig) handleValidateChirp(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Body string `json:"body"`
+	}
+
+	type respVals struct {
+		Valid bool `json:"valid"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		log.Printf("Error decoding parameters: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	const maxChirpLength = 140
+	if len(params.Body) > maxChirpLength {
+		dat, err := json.Marshal(respVals{
+			Valid: false,
+		})
+		if err != nil {
+			log.Printf("Error marshalling JSON: %s", err)
+			w.WriteHeader(500)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(400)
+		w.Write(dat)
+		return
+	}
+	dat, err := json.Marshal(respVals{
+		Valid: true,
+	})
+	if err != nil {
+		log.Printf("Error marshalling JSON: %s", err)
+		w.WriteHeader(500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(dat)
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
