@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (cfg *apiConfig) handleNumRequests(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
 	body := fmt.Sprintf(`
