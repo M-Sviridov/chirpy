@@ -8,15 +8,18 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/M-Sviridov/chirpy/internal/database"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
-	dbQueries      *database.Queries
+	db             *database.Queries
+	platform       string
 }
 
 func main() {
@@ -25,6 +28,7 @@ func main() {
 
 	godotenv.Load()
 	dbUrl := os.Getenv("DB_URL")
+	platform := os.Getenv("PLATFORM")
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		os.Exit(1)
@@ -33,7 +37,8 @@ func main() {
 
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
-		dbQueries:      dbQueries,
+		db:             dbQueries,
+		platform:       platform,
 	}
 
 	mux := http.NewServeMux()
@@ -42,6 +47,7 @@ func main() {
 	mux.HandleFunc("POST /admin/reset", apiCfg.handleReset)
 	mux.HandleFunc("POST /api/validate_chirp", apiCfg.handleValidateChirp)
 	mux.HandleFunc("GET /api/healthz", handleReadiness)
+	mux.HandleFunc("POST /api/users", apiCfg.handleCreateUser)
 
 	srv := http.Server{
 		Handler: mux,
@@ -71,9 +77,13 @@ func (cfg *apiConfig) handleNumRequests(w http.ResponseWriter, r *http.Request) 
 }
 
 func (cfg *apiConfig) handleReset(w http.ResponseWriter, r *http.Request) {
-	cfg.fileserverHits.Store(0)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Reset total hits to 0"))
+	if cfg.platform != "dev" {
+		respondWithError(w, http.StatusForbidden, "cannot run reset on non dev platform")
+	} else {
+		cfg.fileserverHits.Store(0)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Reset total hits to 0"))
+	}
 }
 
 func (cfg *apiConfig) handleValidateChirp(w http.ResponseWriter, r *http.Request) {
@@ -132,4 +142,39 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 		cfg.fileserverHits.Add(1)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (cfg *apiConfig) handleCreateUser(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Email string `json:"email"`
+	}
+
+	type respVals struct {
+		ID        uuid.UUID `json:"id"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+		Email     string    `json:"email"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error decoding parameters")
+		return
+	}
+
+	user, err := cfg.db.CreateUser(r.Context(), params.Email)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "couldn't create user")
+	}
+
+	rv := respVals{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}
+
+	respondWithJSON(w, http.StatusCreated, rv)
 }
