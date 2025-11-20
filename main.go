@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -28,10 +29,17 @@ func main() {
 
 	godotenv.Load()
 	dbUrl := os.Getenv("DB_URL")
+	if dbUrl == "" {
+		log.Fatal("DB_URL cannot be empty")
+	}
 	platform := os.Getenv("PLATFORM")
+	if platform == "" {
+		log.Fatal("PLATFORM cannot be empty")
+	}
+
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
-		os.Exit(1)
+		log.Fatalf("error opening database: %s", err)
 	}
 	dbQueries := database.New(db)
 
@@ -54,7 +62,8 @@ func main() {
 		Addr:    listenAddr,
 	}
 
-	srv.ListenAndServe()
+	log.Printf("listening on address %s\n", listenAddr)
+	log.Fatal(srv.ListenAndServe())
 }
 
 func handleReadiness(w http.ResponseWriter, r *http.Request) {
