@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/M-Sviridov/chirpy/internal/auth"
 	"github.com/M-Sviridov/chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -33,19 +34,33 @@ func (cfg *apiConfig) handleCreateChirp(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't get bearer token")
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.tokenSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "JWT token is invalid")
+		return
+	}
+
 	cleanedBody, err := cfg.validateChirp(params.Body)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "couldn't validate chirp")
+		return
 	}
 
 	chirpParams := database.CreateChirpParams{
 		Body:   cleanedBody,
-		UserID: params.UserID,
+		UserID: userID,
 	}
 
 	chirp, err := cfg.db.CreateChirp(r.Context(), chirpParams)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "couldn't create chirp")
+		return
 	}
 
 	rv := respVals{
@@ -53,7 +68,7 @@ func (cfg *apiConfig) handleCreateChirp(w http.ResponseWriter, r *http.Request) 
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
 		Body:      chirp.Body,
-		UserID:    params.UserID,
+		UserID:    userID,
 	}
 
 	respondWithJSON(w, http.StatusCreated, rv)
