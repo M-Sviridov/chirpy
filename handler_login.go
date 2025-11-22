@@ -31,9 +31,6 @@ func (cfg *apiConfig) handleLogin(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "error decoding parameters")
 		return
 	}
-	if params.ExpiresInSeconds > 3600 || params.ExpiresInSeconds == 0 {
-		params.ExpiresInSeconds = 3600
-	}
 
 	user, err := cfg.db.GetUserByEmail(r.Context(), params.Email)
 	if err != nil {
@@ -47,7 +44,12 @@ func (cfg *apiConfig) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jwtToken, err := auth.MakeJWT(user.ID, cfg.tokenSecret, time.Duration(params.ExpiresInSeconds)*time.Second)
+	expirationTime := time.Hour
+	if params.ExpiresInSeconds < 3600 && params.ExpiresInSeconds > 0 {
+		expirationTime = time.Duration(params.ExpiresInSeconds)
+	}
+
+	jwtToken, err := auth.MakeJWT(user.ID, cfg.tokenSecret, expirationTime)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "couldn't create JWT token")
 		return
