@@ -76,6 +76,14 @@ func TestGetBearerToken(t *testing.T) {
 			hasToken: "",
 			hasErr:   true,
 		},
+		{
+			name: "Malformed authorization header",
+			headers: http.Header{
+				"Authorization": []string{"InvalidBearer tokenx10202"},
+			},
+			hasToken: "",
+			hasErr:   true,
+		},
 	}
 
 	for _, tt := range getBearerTokenTests {
