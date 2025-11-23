@@ -24,7 +24,7 @@ func (cfg *apiConfig) handleRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := cfg.db.RevokeRefreshToken(r.Context(), user.UserID); err != nil {
+	if err := cfg.db.RevokeRefreshToken(r.Context(), refreshToken); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "couldn't revoke frefreshtoken")
 		return
 	}

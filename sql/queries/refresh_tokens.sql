@@ -17,4 +17,4 @@ WHERE token = $1;
 UPDATE refresh_tokens
 SET revoked_at = NOW(),
     updated_at = NOW()
-WHERE user_id = $1;
+WHERE token = $1;
