@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/M-Sviridov/chirpy/internal/auth"
+	"github.com/M-Sviridov/chirpy/internal/database"
 	"github.com/google/uuid"
 )
 
@@ -55,6 +56,17 @@ func (cfg *apiConfig) handleLogin(w http.ResponseWriter, r *http.Request) {
 	refreshToken, err := auth.MakeRefreshToken()
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "couldn't create refresh token")
+		return
+	}
+
+	refreshTokenParams := database.CreateRefreshTokenParams{
+		Token:  refreshToken,
+		UserID: user.ID,
+	}
+
+	_, err = cfg.db.CreateRefreshToken(r.Context(), refreshTokenParams)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't create refresh token in DB")
 		return
 	}
 
