@@ -64,6 +64,7 @@ func main() {
 	mux.HandleFunc("POST /api/refresh", apiCfg.handleRefresh)
 	mux.HandleFunc("POST /api/revoke", apiCfg.handleRevoke)
 	mux.HandleFunc("PUT /api/users", apiCfg.handleUpdateUser)
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.handleWebhooks)
 
 	srv := http.Server{
 		Handler: mux,
