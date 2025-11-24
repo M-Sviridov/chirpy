@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -82,11 +83,7 @@ func (cfg *apiConfig) handleGetChirps(w http.ResponseWriter, r *http.Request) {
 		UserID    uuid.UUID `json:"user_id"`
 	}
 
-	authorID, err := uuid.Parse(r.URL.Query().Get("author_id"))
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "couldn't parse author id")
-		return
-	}
+	authorID, _ := uuid.Parse(r.URL.Query().Get("author_id"))
 
 	allChirps, err := cfg.db.GetChirps(r.Context())
 	if err != nil {
@@ -96,7 +93,7 @@ func (cfg *apiConfig) handleGetChirps(w http.ResponseWriter, r *http.Request) {
 
 	chirps := []respVals{}
 	for _, c := range allChirps {
-		if authorID.String() == "" {
+		if authorID.String() == "" || authorID == uuid.Nil {
 			chirps = append(chirps, respVals{
 				ID:        c.ID,
 				CreatedAt: c.CreatedAt,
@@ -114,6 +111,14 @@ func (cfg *apiConfig) handleGetChirps(w http.ResponseWriter, r *http.Request) {
 				UserID:    c.UserID,
 			})
 		}
+	}
+
+	sortOrder := r.URL.Query().Get("sort")
+	if sortOrder == "asc" {
+		sort.Slice(chirps, func(i, j int) bool { return chirps[i].CreatedAt.Before(chirps[j].CreatedAt) })
+	}
+	if sortOrder == "desc" {
+		sort.Slice(chirps, func(i, j int) bool { return chirps[i].CreatedAt.After(chirps[j].CreatedAt) })
 	}
 
 	respondWithJSON(w, http.StatusOK, chirps)
