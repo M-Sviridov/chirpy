@@ -17,6 +17,7 @@ type apiConfig struct {
 	db             *database.Queries
 	platform       string
 	tokenSecret    string
+	polkaKey       string
 }
 
 func main() {
@@ -36,6 +37,10 @@ func main() {
 	if tokenSecret == "" {
 		log.Fatal("TOKEN_SECRET cannot be empty")
 	}
+	polkaKey := os.Getenv("POLKA_KEY")
+	if tokenSecret == "" {
+		log.Fatal("POLKA_KEY cannot be empty")
+	}
 
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
@@ -48,6 +53,7 @@ func main() {
 		db:             dbQueries,
 		platform:       platform,
 		tokenSecret:    tokenSecret,
+		polkaKey:       polkaKey,
 	}
 
 	mux := http.NewServeMux()
