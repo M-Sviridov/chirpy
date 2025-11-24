@@ -82,20 +82,38 @@ func (cfg *apiConfig) handleGetChirps(w http.ResponseWriter, r *http.Request) {
 		UserID    uuid.UUID `json:"user_id"`
 	}
 
+	authorID, err := uuid.Parse(r.URL.Query().Get("author_id"))
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "couldn't parse author id")
+		return
+	}
+
 	allChirps, err := cfg.db.GetChirps(r.Context())
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "couldn't create chirp")
+		return
 	}
 
 	chirps := []respVals{}
 	for _, c := range allChirps {
-		chirps = append(chirps, respVals{
-			ID:        c.ID,
-			CreatedAt: c.CreatedAt,
-			UpdatedAt: c.UpdatedAt,
-			Body:      c.Body,
-			UserID:    c.UserID,
-		})
+		if authorID.String() == "" {
+			chirps = append(chirps, respVals{
+				ID:        c.ID,
+				CreatedAt: c.CreatedAt,
+				UpdatedAt: c.UpdatedAt,
+				Body:      c.Body,
+				UserID:    c.UserID,
+			})
+		}
+		if authorID == c.UserID {
+			chirps = append(chirps, respVals{
+				ID:        c.ID,
+				CreatedAt: c.CreatedAt,
+				UpdatedAt: c.UpdatedAt,
+				Body:      c.Body,
+				UserID:    c.UserID,
+			})
+		}
 	}
 
 	respondWithJSON(w, http.StatusOK, chirps)
